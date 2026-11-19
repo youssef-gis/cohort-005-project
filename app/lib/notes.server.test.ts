@@ -105,6 +105,13 @@ describe("saving a Note", () => {
     });
   });
 
+  it("refuses an absent note body with a field error", () => {
+    expect(saveNote(db, base.user.id, lessonIds[0], null, NOW)).toEqual({
+      ok: false,
+      error: "Write something before saving your note.",
+    });
+  });
+
   it("keeps the body exactly as typed, Markdown characters included", () => {
     saveNote(
       db,

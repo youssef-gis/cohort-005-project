@@ -98,9 +98,10 @@ describe("lesson requests", () => {
   });
 
   it("loads the saved note only for its author", async () => {
-    await actOnLesson(
+    const result = await actOnLesson(
       await makeRequest({ intent: "save-note", body: "  Private note  " })
     );
+    expect(result).toEqual({ ok: true });
     expect(await loadLesson(await makeRequest())).toMatchObject({
       note: { body: "Private note" },
     });
@@ -108,6 +109,20 @@ describe("lesson requests", () => {
       await loadLesson(await makeRequest(undefined, base.instructor.id))
     ).toMatchObject({
       note: null,
+    });
+  });
+
+  it("rejects a quiz form without an ID", async () => {
+    const request = await makeRequest({ intent: "submit-quiz" });
+    await expect(actOnLesson(request)).rejects.toMatchObject({
+      init: { status: 400 },
+    });
+  });
+
+  it("returns not found for a quiz that no longer exists", async () => {
+    const request = await makeRequest({ intent: "submit-quiz", quizId: "1" });
+    await expect(actOnLesson(request)).rejects.toMatchObject({
+      init: { status: 404 },
     });
   });
 
