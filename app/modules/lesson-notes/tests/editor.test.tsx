@@ -84,9 +84,14 @@ describe("LessonNote", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    expect(html).toMatch(
-      /<span role="alert"[^>]*>Write something first\.<\/span>/
-    );
+    const errorId = html.match(
+      /<span id="([^"]+)" role="alert"[^>]*>Write something first\.<\/span>/
+    )?.[1];
+    const privacyId = html.match(/<p id="([^"]+)"/)?.[1];
+
+    expect(errorId).toBeDefined();
+    expect(html).toContain(`aria-describedby="${privacyId} ${errorId}"`);
+    expect(html).toContain('aria-invalid="true"');
     expect(html).not.toContain("Last edited");
   });
 });

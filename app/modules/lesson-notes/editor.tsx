@@ -12,6 +12,7 @@ export function LessonNote({
 }) {
   const headingId = useId();
   const privacyId = useId();
+  const errorId = useId();
   const fetcher = useFetcher<{ ok: boolean; error?: string }>();
   const isSaving = fetcher.state !== "idle";
   const error = fetcher.data?.error;
@@ -27,7 +28,8 @@ export function LessonNote({
           rows={4}
           defaultValue={note?.body ?? ""}
           aria-labelledby={headingId}
-          aria-describedby={privacyId}
+          aria-describedby={error ? `${privacyId} ${errorId}` : privacyId}
+          aria-invalid={error ? true : undefined}
           placeholder="Write a note for this lesson…"
           className="resize-y bg-background"
         />
@@ -35,22 +37,40 @@ export function LessonNote({
           <Button type="submit" size="sm" disabled={isSaving}>
             {isSaving ? "Saving..." : "Save note"}
           </Button>
-          {error && (
-            <span role="alert" className="text-sm text-destructive">
-              {error}
-            </span>
-          )}
-          {!error && note && (
-            <output
-              suppressHydrationWarning
-              className="text-xs text-muted-foreground"
-            >
-              Last edited {formatRelativeTime(note.updatedAt)}
-            </output>
-          )}
+          <NoteSaveStatus
+            error={error}
+            errorId={errorId}
+            updatedAt={note?.updatedAt}
+          />
         </div>
       </fetcher.Form>
     </section>
+  );
+}
+
+function NoteSaveStatus({
+  error,
+  errorId,
+  updatedAt,
+}: {
+  error?: string;
+  errorId: string;
+  updatedAt?: string;
+}) {
+  if (error) {
+    return (
+      <span id={errorId} role="alert" className="text-sm text-destructive">
+        {error}
+      </span>
+    );
+  }
+
+  if (!updatedAt) return null;
+
+  return (
+    <output suppressHydrationWarning className="text-xs text-muted-foreground">
+      Last edited {formatRelativeTime(updatedAt)}
+    </output>
   );
 }
 
