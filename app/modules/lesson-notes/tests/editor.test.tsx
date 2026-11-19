@@ -1,7 +1,32 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { LessonNote } from "../editor";
+
+const fetcherOverrides = vi.hoisted(() => ({
+  state: undefined as "submitting" | undefined,
+  data: undefined as { ok: false; error: string } | undefined,
+}));
+
+vi.mock(import("react-router"), async (importOriginal) => {
+  const router = await importOriginal();
+  return {
+    ...router,
+    useFetcher: ((options) => {
+      const fetcher = router.useFetcher(options);
+      return {
+        ...fetcher,
+        state: fetcherOverrides.state ?? fetcher.state,
+        data: fetcherOverrides.data ?? fetcher.data,
+      };
+    }) as typeof router.useFetcher,
+  };
+});
+
+afterEach(() => {
+  fetcherOverrides.state = undefined;
+  fetcherOverrides.data = undefined;
+});
 
 function renderEditor(note: Parameters<typeof LessonNote>[0]["note"]) {
   const router = createMemoryRouter([
@@ -27,6 +52,7 @@ describe("LessonNote", () => {
     expect(html).toMatch(/<form[^>]+method="post"/);
     expect(html).toContain('name="intent" value="save-note"');
     expect(html).toContain(">Save note</button>");
+    expect(html).not.toContain('role="alert"');
     expect(html).not.toContain("Last edited");
   });
 
@@ -40,5 +66,27 @@ describe("LessonNote", () => {
       /<textarea[^>]+name="body"[^>]*>Use &lt;T&gt; for a type parameter\.<\/textarea>/
     );
     expect(html).toContain("Last edited");
+  });
+
+  it("disables saving while a note submission is in progress", () => {
+    fetcherOverrides.state = "submitting";
+
+    expect(renderEditor(null)).toMatch(
+      /<button[^>]+disabled="">Saving\.\.\.<\/button>/
+    );
+  });
+
+  it("announces a save error in place of the last edit status", () => {
+    fetcherOverrides.data = { ok: false, error: "Write something first." };
+
+    const html = renderEditor({
+      body: "Existing note",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(html).toMatch(
+      /<span role="alert"[^>]*>Write something first\.<\/span>/
+    );
+    expect(html).not.toContain("Last edited");
   });
 });
