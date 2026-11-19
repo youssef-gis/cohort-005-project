@@ -63,9 +63,10 @@ name: Agent — Implement A Spec
 #
 # WHAT IT NEEDS
 #
-#   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. Both agents are
-#                               Sandcastle scripts in
-#                               .sandcastle/agent-workflows/implement-spec/.
+#   secrets.CODEX_AUTH_JSON — saved subscription credentials (auth.json).
+#     Or set secrets.CODEX_API_KEY for API billing. See .sandcastle/README.md.
+#     Both agents are Sandcastle scripts in
+#     .sandcastle/agent-workflows/implement-spec/.
 #   secrets.FACTORY_PAT       — a fine-grained PAT on this repository with
 #                               Issues, Pull requests, Contents, Workflows and
 #                               Actions, all read/write. Every step that talks
@@ -303,16 +304,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Claude Code
-        run: npm install -g @anthropic-ai/claude-code
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex
 
       - name: Decompose the spec into a queue
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY }}
+          CODEX_MODEL: ${{ vars.CODEX_MODEL }}
           OUTPUT_DIR: ${{ runner.temp }}
         # Reads only. The queue comes back as queue.json, shaped and validated
         # by .sandcastle/agent-workflows/implement-spec/decomposition-schema.ts.
-        run: npx tsx .sandcastle/agent-workflows/implement-spec/decompose.ts
+        run: bash .sandcastle/with-codex-auth.sh npx tsx .sandcastle/agent-workflows/implement-spec/decompose.ts
 
       - name: Write the queue as issues
         env:
@@ -409,8 +412,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Claude Code
-        run: npm install -g @anthropic-ai/claude-code
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex
 
       - name: Migrate and seed the database
         run: |
@@ -474,8 +477,10 @@ jobs:
 
       - name: Build the ticket
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        run: npx tsx .sandcastle/agent-workflows/implement-spec/build.ts
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY }}
+          CODEX_MODEL: ${{ vars.CODEX_MODEL }}
+        run: bash .sandcastle/with-codex-auth.sh npx tsx .sandcastle/agent-workflows/implement-spec/build.ts
 
       - name: Check the agent committed
         # A run with no commit fails here, so the ticket is parked with

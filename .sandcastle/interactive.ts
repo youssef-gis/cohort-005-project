@@ -1,8 +1,9 @@
-import { claudeCode, interactive } from "@ai-hero/sandcastle";
+import { interactive } from "@ai-hero/sandcastle";
 import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
+import { codexAgent } from "./codex";
 
 await interactive({
-  agent: claudeCode("claude-opus-4-6"),
+  agent: codexAgent(),
   sandbox: noSandbox(),
   promptFile: "./.sandcastle/prompt.md",
 });

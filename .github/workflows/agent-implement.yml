@@ -22,9 +22,8 @@ name: Agent — Implement A Ticket
 #   to it in prompt.md.
 #
 # WHAT IT NEEDS
-#   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. To change the
-#     agent or how it is billed, see
-#     .sandcastle/agent-workflows/shared/common.ts.
+#   secrets.CODEX_AUTH_JSON — saved subscription credentials (auth.json).
+#     Or set secrets.CODEX_API_KEY for API billing. See .sandcastle/README.md.
 #   secrets.FACTORY_PAT — a fine-grained PAT on this repository with Issues,
 #     Pull requests, Contents, Workflows and Actions, all read/write. Every
 #     step that talks to GitHub uses it: reading the ticket, pushing, opening
@@ -129,8 +128,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Claude Code
-        run: npm install -g @anthropic-ai/claude-code
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex
 
       - name: Migrate and seed the database
         # The agent gets a real database, because half of this repo's checks
@@ -184,8 +183,10 @@ jobs:
 
       - name: Build the ticket
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        run: npx tsx .sandcastle/agent-workflows/implement/implement.ts
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY }}
+          CODEX_MODEL: ${{ vars.CODEX_MODEL }}
+        run: bash .sandcastle/with-codex-auth.sh npx tsx .sandcastle/agent-workflows/implement/implement.ts
 
       - name: Check the agent committed
         # The agent owns the commits now, so this step owns the question of
