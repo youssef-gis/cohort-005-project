@@ -426,7 +426,7 @@ export async function actOnLesson({ params, request }: LessonRequest) {
   }
 
   if (intent === "mark-complete") {
-    markLessonComplete(currentUserId, lessonId);
+    markLessonComplete(currentUserId, lessonId, new Date());
     return { success: true };
   }
 
