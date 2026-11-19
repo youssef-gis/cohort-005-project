@@ -15,8 +15,6 @@ import { isBookmarked, toggleBookmark } from "~/lib/bookmarks.server";
 import { getNote, saveNote } from "~/lib/notes.server";
 import { MAX_NOTE_LENGTH } from "~/lib/notes";
 import { db } from "~/db";
-import { quizzes } from "~/db/schema";
-import { eq } from "drizzle-orm";
 import { renderMarkdown } from "~/lib/markdown.server";
 import { data } from "react-router";
 import { z } from "zod";
@@ -44,6 +42,7 @@ import {
   getQuizWithQuestions,
   getBestAttempt,
   computeResult,
+  findLessonQuiz,
 } from "./lib/quiz.server";
 
 const createCommentSchema = z.object({
@@ -68,6 +67,30 @@ const saveNoteSchema = z.object({
       `Your note is over ${MAX_NOTE_LENGTH.toLocaleString("en")} characters, so it was not saved.`
     ),
 });
+
+const formId = z
+  .string()
+  .regex(/^\d+$/)
+  .pipe(z.coerce.number().int().positive().safe());
+const quizSubmissionSchema = z.object({
+  quizId: formId,
+  answers: z.array(z.tuple([formId, formId])),
+});
+
+function parseQuizSubmission(formData: FormData) {
+  const answers = [...formData.entries()]
+    .filter(([name]) => name.startsWith("question-"))
+    .map(([name, option]) => [name.slice("question-".length), option]);
+  const parsed = quizSubmissionSchema.safeParse({
+    quizId: formData.get("quizId"),
+    answers,
+  });
+  if (!parsed.success) throw data("Invalid quiz submission", { status: 400 });
+  return {
+    quizId: parsed.data.quizId,
+    selectedAnswers: Object.fromEntries(parsed.data.answers),
+  };
+}
 
 const deleteCommentSchema = z.object({
   intent: z.literal("delete-comment"),
@@ -424,33 +447,12 @@ export async function actOnLesson({ params, request }: LessonRequest) {
   }
 
   if (intent === "submit-quiz") {
-    const quizId = Number(formData.get("quizId"));
-    if (isNaN(quizId)) {
-      throw data("Invalid quiz ID", { status: 400 });
-    }
-    // Scope the quiz to this lesson so a quiz elsewhere can't be reached by
-    // posting its id to this route.
-    const quiz = db.select().from(quizzes).where(eq(quizzes.id, quizId)).get();
-    if (!quiz || quiz.lessonId !== lessonId) {
+    const { quizId, selectedAnswers } = parseQuizSubmission(formData);
+    if (!findLessonQuiz(lessonId, quizId)) {
       throw data("Quiz not found", { status: 404 });
     }
 
-    // Collect answers: form fields named "question-{questionId}" with value = optionId
-    const selectedAnswers: Record<number, number> = {};
-    for (const [key, value] of formData.entries()) {
-      if (key.startsWith("question-")) {
-        const questionId = Number(key.replace("question-", ""));
-        const optionId = Number(value);
-        if (!isNaN(questionId) && !isNaN(optionId)) {
-          selectedAnswers[questionId] = optionId;
-        }
-      }
-    }
-
     const result = computeResult(currentUserId, quizId, selectedAnswers);
-    if (!result) {
-      throw data("Failed to score quiz", { status: 500 });
-    }
 
     return { quizResult: result };
   }
