@@ -6,7 +6,7 @@ import {
   isRouteErrorResponse,
 } from "react-router";
 import type { Route } from "./+types/courses.$slug.lessons.$lessonId";
-import { loadLesson, actOnLesson } from "./lesson-request.server";
+import { loadLesson, actOnLesson } from "~/modules/lesson-viewer/index.server";
 import { CommentThread } from "~/components/comment-thread";
 import { CurriculumSidebar } from "~/components/lesson-curriculum";
 import { QuizSection } from "~/components/lesson-quiz";

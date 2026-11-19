@@ -32,15 +32,19 @@ import {
   markLessonInProgress,
   getLastWatchPosition,
   calculateWatchProgress,
+  flattenCourseLessons,
+} from "./lib/course.server";
+import {
   getCommentById,
   getLessonThread,
+  renderThread,
+} from "./lib/discussion.server";
+import {
   getQuizByLessonId,
   getQuizWithQuestions,
   getBestAttempt,
   computeResult,
-  renderThread,
-  flattenCourseLessons,
-} from "./lesson-data.server";
+} from "./lib/quiz.server";
 
 const createCommentSchema = z.object({
   intent: z.literal("create-comment"),
