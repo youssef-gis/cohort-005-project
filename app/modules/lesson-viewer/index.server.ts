@@ -13,7 +13,6 @@ import {
 import { defaultNotifications } from "~/lib/notifications.server";
 import { isBookmarked, toggleBookmark } from "~/lib/bookmarks.server";
 import { getNote, saveNote } from "~/lib/notes.server";
-import { MAX_NOTE_LENGTH } from "~/lib/notes";
 import { db } from "~/db";
 import { renderMarkdown } from "~/lib/markdown.server";
 import { data } from "react-router";
@@ -55,17 +54,6 @@ const editCommentSchema = z.object({
   intent: z.literal("edit-comment"),
   commentId: z.coerce.number().int(),
   body: z.string(),
-});
-
-const saveNoteSchema = z.object({
-  body: z
-    .string()
-    .trim()
-    .min(1, "Write something before saving your note.")
-    .max(
-      MAX_NOTE_LENGTH,
-      `Your note is over ${MAX_NOTE_LENGTH.toLocaleString("en")} characters, so it was not saved.`
-    ),
 });
 
 const formId = z
@@ -426,18 +414,14 @@ export async function actOnLesson({ params, request }: LessonRequest) {
       return { ok: true, bookmarked };
     }
 
-    const parsed = parseFormData(formData, saveNoteSchema);
-    if (!parsed.success) {
-      return { ok: false, error: parsed.errors.body };
-    }
     const saved = saveNote(
       db,
       currentUserId,
       lessonId,
-      parsed.data.body,
+      formData.get("body"),
       new Date()
     );
-    if (!saved.ok) return saved;
+    if (!saved.ok) return data(saved, { status: 400 });
     return { ok: true };
   }
 
