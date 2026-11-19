@@ -5,6 +5,7 @@ import { courses, lessons, modules, notes } from "~/db/schema";
 import { savedLessonColumns } from "~/lib/saved-lesson.server";
 import { MAX_NOTE_LENGTH } from "~/lib/notes";
 import { plainText } from "~/lib/text";
+import { z } from "zod";
 
 // Nothing outside the owning Student's Lesson page and Saved page may read a
 // Note body: no Instructor or Platform Admin view.
@@ -30,6 +31,16 @@ export type SaveNoteResult =
   | { ok: true; note: Note }
   | { ok: false; error: string };
 
+const noteBodySchema = z
+  .string({ invalid_type_error: "Write something before saving your note." })
+  .trim()
+  .min(1, "Write something before saving your note.")
+  .max(
+    MAX_NOTE_LENGTH,
+    `Your note is over ${MAX_NOTE_LENGTH.toLocaleString("en")} characters, so it was not saved.`
+  )
+  .transform(plainText);
+
 /**
  * Writes the Student's Note on the Lesson. Saving again replaces the body and
  * moves `updatedAt` on; `createdAt` stays where it was.
@@ -38,20 +49,15 @@ export function saveNote(
   db: Db,
   studentId: number,
   lessonId: number,
-  body: string,
+  body: unknown,
   now: Date
 ): SaveNoteResult {
-  const trimmed = plainText(body.trim());
-  if (trimmed.length === 0) {
-    return { ok: false, error: "Write something before saving your note" };
-  }
-  if (trimmed.length > MAX_NOTE_LENGTH) {
-    return {
-      ok: false,
-      error: `Note must be ${MAX_NOTE_LENGTH} characters or fewer`,
-    };
+  const parsed = noteBodySchema.safeParse(body);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message };
   }
 
+  const trimmed = parsed.data;
   const at = now.toISOString();
   const note = db
     .insert(notes)
