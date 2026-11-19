@@ -330,77 +330,68 @@ export async function actOnLesson({ params, request }: LessonRequest) {
     intent === "edit-comment" ||
     intent === "delete-comment"
   ) {
-    try {
-      if (intent === "create-comment") {
-        const parsed = parseFormData(formData, createCommentSchema);
-        if (!parsed.success) {
-          return { ok: false, error: "Enter a comment before posting." };
-        }
-        const created = await createComment(
-          db,
-          currentUserId,
-          lessonId,
-          parsed.data.parentId ?? null,
-          parsed.data.body,
-          new Date(),
-          await defaultNotifications()
-        );
-        if (!created.ok) return created;
-        return { ok: true };
-      }
-
-      if (intent === "edit-comment") {
-        const parsed = parseFormData(formData, editCommentSchema);
-        if (!parsed.success) {
-          return { ok: false, error: "Enter a comment before saving." };
-        }
-        // Scope the id to this lesson so a comment elsewhere can't be reached
-        // by posting its id to this route.
-        const existing = getCommentById(parsed.data.commentId);
-        if (!existing || existing.lessonId !== lessonId) {
-          throw data("Comment not found", { status: 404 });
-        }
-        const edited = editComment(
-          db,
-          parsed.data.commentId,
-          currentUserId,
-          parsed.data.body,
-          new Date()
-        );
-        if (!edited.ok) return edited;
-        return { ok: true };
-      }
-
-      const parsed = parseFormData(formData, deleteCommentSchema);
+    if (intent === "create-comment") {
+      const parsed = parseFormData(formData, createCommentSchema);
       if (!parsed.success) {
-        return { ok: false, error: "Could not delete that comment." };
+        return { ok: false, error: "Enter a comment before posting." };
       }
+      const created = await createComment(
+        db,
+        currentUserId,
+        lessonId,
+        parsed.data.parentId ?? null,
+        parsed.data.body,
+        new Date(),
+        await defaultNotifications()
+      );
+      if (!created.ok) return created;
+      return { ok: true };
+    }
+
+    if (intent === "edit-comment") {
+      const parsed = parseFormData(formData, editCommentSchema);
+      if (!parsed.success) {
+        return { ok: false, error: "Enter a comment before saving." };
+      }
+      // Scope the id to this lesson so a comment elsewhere can't be reached
+      // by posting its id to this route.
       const existing = getCommentById(parsed.data.commentId);
       if (!existing || existing.lessonId !== lessonId) {
         throw data("Comment not found", { status: 404 });
       }
-      // Anyone who can view may delete their own posts; moderating someone
-      // else's takes the manage capability.
-      const decisions = coursePermissions.decide(person, ref);
-      const canModerate = decisions.found && decisions.manage.allowed;
-      const deleted = await deleteComment(
+      const edited = editComment(
         db,
         parsed.data.commentId,
         currentUserId,
-        canModerate,
-        new Date(),
-        await defaultNotifications()
+        parsed.data.body,
+        new Date()
       );
-      if (!deleted.ok) return deleted;
+      if (!edited.ok) return edited;
       return { ok: true };
-    } catch (error) {
-      // Service validation failures are user-correctable; anything thrown as a
-      // Response (404 above) should keep bubbling.
-      if (error instanceof Error) {
-        return { ok: false, error: error.message };
-      }
-      throw error;
     }
+
+    const parsed = parseFormData(formData, deleteCommentSchema);
+    if (!parsed.success) {
+      return { ok: false, error: "Could not delete that comment." };
+    }
+    const existing = getCommentById(parsed.data.commentId);
+    if (!existing || existing.lessonId !== lessonId) {
+      throw data("Comment not found", { status: 404 });
+    }
+    // Anyone who can view may delete their own posts; moderating someone
+    // else's takes the manage capability.
+    const decisions = coursePermissions.decide(person, ref);
+    const canModerate = decisions.found && decisions.manage.allowed;
+    const deleted = await deleteComment(
+      db,
+      parsed.data.commentId,
+      currentUserId,
+      canModerate,
+      new Date(),
+      await defaultNotifications()
+    );
+    if (!deleted.ok) return deleted;
+    return { ok: true };
   }
 
   if (intent === "toggle-bookmark" || intent === "save-note") {
